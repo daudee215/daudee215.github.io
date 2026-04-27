@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aerial LiDAR Spatial Eval — Live Demo</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --green: #176b4d;
+    --green-light: #1d8a62;
+    --ink: #17211c;
+    --muted: #4a5c52;
+    --bg: #f3f7f5;
+    --card: #ffffff;
+    --border: #d0ddd6;
+    --accent: #e8f4ef;
+    --red: #c0392b;
+    --amber: #d97706;
+    --radius: 8px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #0d4a34 0%, #176b4d 60%, #1d8a62 100%);
+    color: #fff;
+    padding: 48px 24px 40px;
+    text-align: center;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase; margin-bottom: 16px;
+  }
+  .hero h1 { font-size: clamp(22px, 4vw, 36px); font-weight: 700; margin-bottom: 10px; }
+  .hero p { font-size: 15px; opacity: .82; max-width: 540px; margin: 0 auto 24px; }
+  .hero-links { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .hero-links a {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    text-decoration: none; transition: opacity .15s;
+  }
+  .hero-links a:hover { opacity: .85; }
+  .btn-primary { background: #fff; color: var(--green); }
+  .btn-ghost { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.3); }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+  .grid-2 { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; }
+  @media(max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .panel-header {
+    background: var(--accent); border-bottom: 1px solid var(--border);
+    padding: 12px 16px; font-size: 12px; font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--green);
+  }
+  .panel-body { padding: 16px; }
+
+  /* ── Controls ── */
+  .control-group { margin-bottom: 18px; }
+  .control-group:last-child { margin-bottom: 0; }
+  .control-label {
+    display: flex; justify-content: space-between;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;
+  }
+  .control-label span { color: var(--green); font-weight: 700; }
+  input[type=range] {
+    width: 100%; accent-color: var(--green); cursor: pointer;
+  }
+  .mode-tabs {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 4px; margin-bottom: 16px;
+  }
+  .mode-tab {
+    padding: 8px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg); font-size: 12px; font-weight: 600;
+    cursor: pointer; text-align: center; color: var(--muted);
+    transition: all .15s;
+  }
+  .mode-tab.active {
+    background: var(--green); color: #fff; border-color: var(--green);
+  }
+  .upload-zone {
+    border: 2px dashed var(--border); border-radius: 6px;
+    padding: 20px; text-align: center; cursor: pointer;
+    font-size: 13px; color: var(--muted); transition: border-color .15s;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--green); color: var(--green); }
+  .upload-zone input { display: none; }
+  .upload-hint { font-size: 11px; margin-top: 6px; opacity: .7; }
+  #run-btn {
+    width: 100%; padding: 11px; background: var(--green); color: #fff;
+    border: none; border-radius: 6px; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: background .15s; margin-top: 16px;
+  }
+  #run-btn:hover { background: var(--green-light); }
+
+  /* ── Status pill ── */
+  #status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .pill-idle { background: #edf2ef; color: var(--muted); }
+  .pill-running { background: #fef3c7; color: #92400e; }
+  .pill-ok { background: #d1fae5; color: #065f46; }
+  .pill-err { background: #fee2e2; color: #991b1b; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+  /* ── Summary band ── */
+  .summary-band {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    margin-bottom: 24px;
+  }
+  @media(max-width: 500px) { .summary-band { grid-template-columns: repeat(2, 1fr); } }
+  .metric-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 12px; text-align: center;
+  }
+  .metric-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .metric-value { font-size: 26px; font-weight: 800; color: var(--green); margin: 4px 0 2px; }
+  .metric-sub { font-size: 11px; color: var(--muted); }
+
+  /* ── Results grid ── */
+  .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media(max-width: 600px) { .results-grid { grid-template-columns: 1fr; } }
+  .chart-wrap { position: relative; height: 220px; }
+  canvas.heatmap { width: 100%; image-rendering: pixelated; border-radius: 4px; }
+
+  /* ── Code snippet ── */
+  .snippet-panel { margin-top: 16px; }
+  details summary {
+    cursor: pointer; font-size: 12px; font-weight: 700; color: var(--green);
+    text-transform: uppercase; letter-spacing: .06em; padding: 4px 0;
+    user-select: none;
+  }
+  pre {
+    background: #0d1117; color: #c9d1d9; border-radius: 6px;
+    padding: 16px; font-size: 12px; line-height: 1.6;
+    overflow-x: auto; margin-top: 8px;
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-badge">
+    <svg width="10" height="10" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4"/></svg>
+    Live Demo
+  </div>
+  <h1>Aerial LiDAR Spatial Eval</h1>
+  <p>Browser-native semantic segmentation metrics — confusion matrix, distance-weighted CM, spatially stratified IoU, and hard-point detection. No install required.</p>
+  <div class="hero-links">
+    <a href="https://github.com/daudee215/aerial-lidar-spatial-eval" class="btn-primary" target="_blank">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+    <a href="https://daudee215.github.io/" class="btn-ghost" target="_blank">← GIS Tools Lab</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="grid-2">
+
+    <!-- ── LEFT PANEL ── -->
+    <div>
+      <div class="panel">
+        <div class="panel-header">Input</div>
+        <div class="panel-body">
+          <div class="mode-tabs">
+            <div class="mode-tab active" data-mode="demo" onclick="switchMode('demo')">Generate</div>
+            <div class="mode-tab" data-mode="upload" onclick="switchMode('upload')">Upload CSV</div>
+          </div>
+
+          <!-- Demo sliders -->
+          <div id="demo-controls">
+            <div class="control-group">
+              <div class="control-label">Classes <span id="nc-val">3</span></div>
+              <input type="range" id="nc" min="2" max="5" value="3" oninput="document.getElementById('nc-val').textContent=this.value">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Points <span id="np-val">10 000</span></div>
+              <input type="range" id="np" min="2000" max="40000" step="2000" value="10000"
+                oninput="document.getElementById('np-val').textContent=Number(this.value).toLocaleString()">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Noise % <span id="nf-val">12%</span></div>
+              <input type="range" id="nf" min="2" max="35" value="12"
+                oninput="document.getElementById('nf-val').textContent=this.value+'%'">
+            </div>
+          </div>
+
+          <!-- Upload -->
+          <div id="upload-controls" class="hidden">
+            <div class="upload-zone" id="drop-zone" onclick="document.getElementById('csv-file').click()"
+              ondragover="event.preventDefault();this.classList.add('drag')"
+              ondragleave="this.classList.remove('drag')"
+              ondrop="handleDrop(event)">
+              <input type="file" id="csv-file" accept=".csv,.txt" onchange="handleFile(this.files[0])">
+              📂 Click or drop CSV here
+              <div class="upload-hint">Columns: x, y, z, true_label, pred_label</div>
+            </div>
+            <div id="file-info" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
+          </div>
+
+          <button id="run-btn" onclick="run()">▶ Run Evaluation</button>
+        </div>
+      </div>
+
+      <!-- Algorithm info -->
+      <div class="panel" style="margin-top:16px;">
+        <div class="panel-header">Metrics</div>
+        <div class="panel-body" style="font-size:12px;line-height:1.7;color:var(--muted);">
+          <strong style="color:var(--ink)">Confusion Matrix</strong> — class-level TP/FP/FN.<br>
+          <strong style="color:var(--ink)">Distance-Weighted CM</strong> — each prediction weighted by proximity to nearest GT point of predicted class.<br>
+          <strong style="color:var(--ink)">Spatially Stratified IoU</strong> — mIoU split by distance bands to reveal boundary degradation.<br>
+          <strong style="color:var(--ink)">Hard Points</strong> — predictions far from any GT anchor of same class (boundary confusion).<br>
+          <strong style="color:var(--ink)">MDE</strong> — Mean Distance Error: avg distance from each pred point to nearest GT point of same class.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RIGHT PANEL ── -->
+    <div>
+      <div id="status-pill" class="pill-idle"><div class="dot"></div><span id="status-text">Ready</span></div>
+
+      <div id="results-area" class="hidden">
+        <!-- Summary -->
+        <div class="summary-band" id="summary-band"></div>
+
+        <!-- Heatmaps row -->
+        <div class="results-grid">
+          <div class="panel">
+            <div class="panel-header">Confusion Matrix</div>
+            <div class="panel-body" style="padding:10px;">
+              <canvas id="cm-canvas" class="heatmap"></canvas>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">Distance-Weighted CM</div>
+            <div class="panel-body" style="padding:10px;">
+              <canvas id="dw-canvas" class="heatmap"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts row -->
+        <div class="results-grid">
+          <div class="panel">
+            <div class="panel-header">MDE by Class (m)</div>
+            <div class="panel-body"><div class="chart-wrap"><canvas id="mde-chart"></canvas></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">Stratified mIoU by Distance Band</div>
+            <div class="panel-body"><div class="chart-wrap"><canvas id="iou-chart"></canvas></div></div>
+          </div>
+        </div>
+
+        <!-- Code snippet -->
+        <div class="panel snippet-panel">
+          <div class="panel-body">
+            <details>
+              <summary>Python equivalent (aerial-lidar-spatial-eval)</summary>
+              <pre id="code-snippet"></pre>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  Mode switch
+// ─────────────────────────────────────────────
+let uploadedData = null;
+
+function switchMode(m) {
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+  document.getElementById('demo-controls').classList.toggle('hidden', m !== 'demo');
+  document.getElementById('upload-controls').classList.toggle('hidden', m !== 'upload');
+}
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      uploadedData = parseCSV(e.target.result);
+      document.getElementById('file-info').textContent =
+        `✓ ${uploadedData.length.toLocaleString()} points loaded`;
+    } catch(err) {
+      document.getElementById('file-info').textContent = '✗ ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+}
+
+function handleDrop(ev) {
+  ev.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  handleFile(ev.dataTransfer.files[0]);
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const header = lines[0].toLowerCase().split(',').map(s => s.trim());
+  const xi = header.indexOf('x'), yi = header.indexOf('y'), zi = header.indexOf('z');
+  const ti = header.indexOf('true_label'), pi = header.indexOf('pred_label');
+  if ([xi,yi,zi,ti,pi].some(i => i < 0))
+    throw new Error('Need columns: x, y, z, true_label, pred_label');
+  const data = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',');
+    if (cols.length < 5) continue;
+    data.push({
+      x: parseFloat(cols[xi]), y: parseFloat(cols[yi]), z: parseFloat(cols[zi]),
+      true_label: parseInt(cols[ti]), pred_label: parseInt(cols[pi])
+    });
+  }
+  return data;
+}
+
+// ─────────────────────────────────────────────
+//  Spatial grid for O(n) approximate NN
+// ─────────────────────────────────────────────
+class SpatialGrid {
+  constructor(points, cellSize) {
+    this.cellSize = cellSize || 1;
+    this.pts = points;
+    this.grid = new Map();
+    for (let i = 0; i < points.length; i++) {
+      const key = this._key(points[i][0], points[i][1], points[i][2]);
+      let cell = this.grid.get(key);
+      if (!cell) { cell = []; this.grid.set(key, cell); }
+      cell.push(i);
+    }
+  }
+  _key(x, y, z) {
+    return `${Math.floor(x/this.cellSize)},${Math.floor(y/this.cellSize)},${Math.floor(z/this.cellSize)}`;
+  }
+  nearestDist(x, y, z, skipIdx) {
+    const cx = Math.floor(x/this.cellSize);
+    const cy = Math.floor(y/this.cellSize);
+    const cz = Math.floor(z/this.cellSize);
+    let best = Infinity;
+    for (let dx = -1; dx <= 1; dx++)
+    for (let dy = -1; dy <= 1; dy++)
+    for (let dz = -1; dz <= 1; dz++) {
+      const cell = this.grid.get(`${cx+dx},${cy+dy},${cz+dz}`);
+      if (!cell) continue;
+      for (const idx of cell) {
+        if (idx === skipIdx) continue;
+        const p = this.pts[idx];
+        const dd = Math.hypot(x-p[0], y-p[1], z-p[2]);
+        if (dd < best) best = dd;
+      }
+    }
+    // If nothing found in 3x3x3, scan 5x5x5
+    if (!isFinite(best)) {
+      for (let dx = -2; dx <= 2; dx++)
+      for (let dy = -2; dy <= 2; dy++)
+      for (let dz = -2; dz <= 2; dz++) {
+        const cell = this.grid.get(`${cx+dx},${cy+dy},${cz+dz}`);
+        if (!cell) continue;
+        for (const idx of cell) {
+          if (idx === skipIdx) continue;
+          const p = this.pts[idx];
+          const dd = Math.hypot(x-p[0], y-p[1], z-p[2]);
+          if (dd < best) best = dd;
+        }
+      }
+    }
+    return isFinite(best) ? best : 0;
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Synthetic data generation
+// ─────────────────────────────────────────────
+function generateSynthetic(nClasses, nPoints, noiseFrac) {
+  const rng = mulberry32(42);
+  const centroids = [];
+  for (let c = 0; c < nClasses; c++)
+    centroids.push([rng()*80+10, rng()*80+10, rng()*20+5]);
+
+  const data = [];
+  for (let i = 0; i < nPoints; i++) {
+    const c = Math.floor(rng() * nClasses);
+    const cx = centroids[c];
+    const x = cx[0] + (rng()-0.5)*25;
+    const y = cx[1] + (rng()-0.5)*25;
+    const z = cx[2] + (rng()-0.5)*8;
+    // Boundary preferential noise
+    let pred = c;
+    if (rng() < noiseFrac / 100) {
+      pred = Math.floor(rng() * nClasses);
+    }
+    data.push({ x, y, z, true_label: c, pred_label: pred });
+  }
+  return data;
+}
+
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ─────────────────────────────────────────────
+//  Core metrics
+// ─────────────────────────────────────────────
+function computeMetrics(data, nClasses) {
+  // Confusion matrix
+  const cm = Array.from({length: nClasses}, () => new Float64Array(nClasses));
+  let valid = 0;
+  for (const pt of data) {
+    const t = pt.true_label, p = pt.pred_label;
+    if (t >= 0 && t < nClasses && p >= 0 && p < nClasses) {
+      cm[t][p]++;
+      valid++;
+    }
+  }
+
+  // Per-class IoU
+  const iou = new Float64Array(nClasses);
+  for (let c = 0; c < nClasses; c++) {
+    const tp = cm[c][c];
+    let fp = 0, fn = 0;
+    for (let j = 0; j < nClasses; j++) {
+      if (j !== c) { fp += cm[j][c]; fn += cm[c][j]; }
+    }
+    const d = tp + fp + fn;
+    iou[c] = d > 0 ? tp / d : 0;
+  }
+  const miou = Array.from(iou).reduce((a, b) => a + b, 0) / nClasses;
+
+  // Accuracy
+  let correct = 0;
+  for (let c = 0; c < nClasses; c++) correct += cm[c][c];
+  const accuracy = valid > 0 ? correct / valid : 0;
+
+  // Build per-class GT grids
+  const gtByClass = Array.from({length: nClasses}, () => []);
+  for (const pt of data) {
+    const t = pt.true_label;
+    if (t >= 0 && t < nClasses) gtByClass[t].push([pt.x, pt.y, pt.z]);
+  }
+
+  // Cell size: ~5% of bounding box diagonal
+  let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+  for (const pt of data) {
+    if (pt.x < xmin) xmin = pt.x; if (pt.x > xmax) xmax = pt.x;
+    if (pt.y < ymin) ymin = pt.y; if (pt.y > ymax) ymax = pt.y;
+  }
+  const span = Math.max(xmax - xmin, ymax - ymin, 1);
+  const cellSize = span * 0.06;
+
+  const grids = gtByClass.map(pts => pts.length > 0 ? new SpatialGrid(pts, cellSize) : null);
+
+  // Per-point distances (pred → nearest GT of predicted class)
+  const dists = new Float32Array(data.length);
+  for (let i = 0; i < data.length; i++) {
+    const pt = data[i];
+    const c = pt.pred_label;
+    const g = (c >= 0 && c < nClasses) ? grids[c] : null;
+    dists[i] = g ? g.nearestDist(pt.x, pt.y, pt.z) : 0;
+  }
+
+  // MDE per class
+  const mde = new Float64Array(nClasses);
+  const mde_count = new Float64Array(nClasses);
+  for (let i = 0; i < data.length; i++) {
+    const c = data[i].pred_label;
+    if (c >= 0 && c < nClasses) { mde[c] += dists[i]; mde_count[c]++; }
+  }
+  for (let c = 0; c < nClasses; c++) mde[c] = mde_count[c] > 0 ? mde[c] / mde_count[c] : 0;
+  const mmde = Array.from(mde).reduce((a, b) => a + b, 0) / nClasses;
+
+  // Distance-weighted CM (normalise by row sum so colours are relative)
+  const dw = Array.from({length: nClasses}, () => new Float64Array(nClasses));
+  let maxDist = 0;
+  for (let i = 0; i < dists.length; i++) if (dists[i] > maxDist) maxDist = dists[i];
+  if (maxDist < 1e-9) maxDist = 1;
+  for (let i = 0; i < data.length; i++) {
+    const t = data[i].true_label, p = data[i].pred_label;
+    if (t >= 0 && t < nClasses && p >= 0 && p < nClasses) {
+      const w = 1 - dists[i] / maxDist;
+      dw[t][p] += w;
+    }
+  }
+
+  // Spatially stratified IoU — 4 bands by distance quartile
+  const allDists = Array.from(dists).sort((a, b) => a - b);
+  const n = allDists.length;
+  const q25 = allDists[Math.floor(n * 0.25)] || 0;
+  const q50 = allDists[Math.floor(n * 0.50)] || 0;
+  const q75 = allDists[Math.floor(n * 0.75)] || 0;
+  const fmt = v => v.toFixed(1);
+  const bandLabels = [`0–${fmt(q25)}m`, `${fmt(q25)}–${fmt(q50)}m`, `${fmt(q50)}–${fmt(q75)}m`, `>${fmt(q75)}m`];
+  const edges = [0, q25, q50, q75, Infinity];
+
+  const bandMiou = [], bandCounts = [];
+  for (let b = 0; b < 4; b++) {
+    const bcm = Array.from({length: nClasses}, () => new Float64Array(nClasses));
+    let cnt = 0;
+    for (let i = 0; i < data.length; i++) {
+      const d = dists[i];
+      if (d >= edges[b] && d < edges[b+1]) {
+        const t = data[i].true_label, p = data[i].pred_label;
+        if (t >= 0 && t < nClasses && p >= 0 && p < nClasses) { bcm[t][p]++; cnt++; }
+      }
+    }
+    const biou = new Float64Array(nClasses);
+    for (let c = 0; c < nClasses; c++) {
+      const tp = bcm[c][c]; let fp = 0, fn = 0;
+      for (let j = 0; j < nClasses; j++) {
+        if (j !== c) { fp += bcm[j][c]; fn += bcm[c][j]; }
+      }
+      const d2 = tp + fp + fn;
+      biou[c] = d2 > 0 ? tp / d2 : 0;
+    }
+    bandMiou.push(Array.from(biou).reduce((a, b2) => a + b2, 0) / nClasses);
+    bandCounts.push(cnt);
+  }
+
+  // Hard points: dists > q75
+  const hardCount = Array.from(dists).filter(d => d > q75).length;
+  const hardPct = (hardCount / data.length) * 100;
+
+  return { cm, dw, iou, miou, accuracy, mde, mmde, bandLabels, bandMiou, bandCounts, hardPct, nClasses };
+}
+
+// ─────────────────────────────────────────────
+//  Chart references (destroy on redraw)
+// ─────────────────────────────────────────────
+let mdeChart = null, iouChart = null;
+
+// ─────────────────────────────────────────────
+//  Render helpers
+// ─────────────────────────────────────────────
+function renderSummary(r) {
+  const pct = v => (v * 100).toFixed(1) + '%';
+  document.getElementById('summary-band').innerHTML = `
+    <div class="metric-card">
+      <div class="metric-label">mIoU</div>
+      <div class="metric-value">${pct(r.miou)}</div>
+      <div class="metric-sub">mean Intersection over Union</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Accuracy</div>
+      <div class="metric-value">${pct(r.accuracy)}</div>
+      <div class="metric-sub">point-wise</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">mMDE</div>
+      <div class="metric-value">${r.mmde.toFixed(2)}<span style="font-size:14px;font-weight:500">m</span></div>
+      <div class="metric-sub">mean distance error</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Hard pts</div>
+      <div class="metric-value">${r.hardPct.toFixed(1)}<span style="font-size:14px;font-weight:500">%</span></div>
+      <div class="metric-sub">near boundary</div>
+    </div>`;
+}
+
+function renderHeatmap(canvasId, matrix, nClasses, isWeighted) {
+  const canvas = document.getElementById(canvasId);
+  const scale = Math.max(2, Math.floor(240 / nClasses));
+  const size = nClasses * scale;
+  canvas.width = size; canvas.height = size;
+  canvas.style.width = '100%';
+  const ctx = canvas.getContext('2d');
+
+  // Find max for normalisation
+  let maxVal = 0;
+  for (let i = 0; i < nClasses; i++)
+    for (let j = 0; j < nClasses; j++)
+      if (matrix[i][j] > maxVal) maxVal = matrix[i][j];
+  if (maxVal < 1e-9) maxVal = 1;
+
+  for (let i = 0; i < nClasses; i++) {
+    for (let j = 0; j < nClasses; j++) {
+      const v = matrix[i][j] / maxVal;
+      const onDiag = (i === j);
+      // Green tint on diagonal, red tint off diagonal
+      const r = onDiag ? Math.round(23 * v) : Math.round(192 * v + 243 * (1-v));
+      const g = onDiag ? Math.round(107 * v + 243 * (1-v)) : Math.round(57 * v + 243 * (1-v));
+      const b = onDiag ? Math.round(77 * v + 243 * (1-v)) : Math.round(43 * v + 243 * (1-v));
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(j * scale, i * scale, scale, scale);
+    }
+  }
+}
+
+function renderCharts(r) {
+  const labels = Array.from({length: r.nClasses}, (_, i) => `C${i}`);
+  const green = '#176b4d', green2 = '#1d8a62';
+
+  if (mdeChart) { mdeChart.destroy(); mdeChart = null; }
+  if (iouChart) { iouChart.destroy(); iouChart = null; }
+
+  mdeChart = new Chart(document.getElementById('mde-chart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'MDE (m)', data: Array.from(r.mde), backgroundColor: green }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, title: { display: true, text: 'metres' } } }
+    }
+  });
+
+  iouChart = new Chart(document.getElementById('iou-chart'), {
+    type: 'bar',
+    data: {
+      labels: r.bandLabels,
+      datasets: [{ label: 'mIoU', data: r.bandMiou.map(v => +(v*100).toFixed(2)),
+        backgroundColor: r.bandMiou.map((v, i) => i < 2 ? green : green2) }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } } }
+    }
+  });
+}
+
+function renderSnippet(r) {
+  const iouArr = Array.from(r.iou).map(v => (v*100).toFixed(1) + '%').join(', ');
+  const mdeArr = Array.from(r.mde).map(v => v.toFixed(3)).join(', ');
+  document.getElementById('code-snippet').textContent =
+`from aerial_lidar_spatial_eval import SpatialEvaluator
+import numpy as np
+
+evaluator = SpatialEvaluator(n_classes=${r.nClasses})
+results = evaluator.evaluate(gt_xyz, gt_labels, pred_xyz, pred_labels)
+
+# mIoU: ${(r.miou*100).toFixed(1)}%    Accuracy: ${(r.accuracy*100).toFixed(1)}%
+# mMDE: ${r.mmde.toFixed(3)} m         Hard pts: ${r.hardPct.toFixed(1)}%
+
+print(results.iou_per_class)
+# [${iouArr}]
+
+print(results.mde_per_class)
+# [${mdeArr}]`;
+}
+
+// ─────────────────────────────────────────────
+//  Run
+// ─────────────────────────────────────────────
+function setStatus(state, text) {
+  const pill = document.getElementById('status-pill');
+  pill.className = 'pill-' + state;
+  document.getElementById('status-text').textContent = text;
+}
+
+async function run() {
+  const isUpload = document.querySelector('.mode-tab[data-mode="upload"]').classList.contains('active');
+  let data;
+
+  if (isUpload) {
+    if (!uploadedData) { setStatus('err', 'Upload a CSV first'); return; }
+    data = uploadedData;
+  } else {
+    const nc = +document.getElementById('nc').value;
+    const np = +document.getElementById('np').value;
+    const nf = +document.getElementById('nf').value;
+    setStatus('running', `Generating ${np.toLocaleString()} points…`);
+    await tick();
+    data = generateSynthetic(nc, np, nf);
+  }
+
+  setStatus('running', 'Computing metrics…');
+  await tick();
+
+  const nClasses = Math.max(...data.map(p => Math.max(p.true_label, p.pred_label))) + 1;
+  let r;
+  try {
+    r = computeMetrics(data, nClasses);
+  } catch(e) {
+    setStatus('err', 'Error: ' + e.message);
+    return;
+  }
+
+  renderSummary(r);
+  renderHeatmap('cm-canvas', r.cm, nClasses, false);
+  renderHeatmap('dw-canvas', r.dw, nClasses, true);
+  renderCharts(r);
+  renderSnippet(r);
+
+  document.getElementById('results-area').classList.remove('hidden');
+  setStatus('ok', `Done — ${data.length.toLocaleString()} pts · ${nClasses} classes`);
+}
+
+function tick() { return new Promise(r => setTimeout(r, 0)); }
+
+// Auto-run on load
+window.addEventListener('load', () => setTimeout(run, 200));
+</script>
+</body>
+</html>
