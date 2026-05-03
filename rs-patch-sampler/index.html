@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>rs-patch-sampler · Interactive Demo</title>
+<style>
+  /* ── Design tokens (from gisgap family) ───────────────────────── */
+  :root {
+    --c-bg:        #0d1117;
+    --c-surface:   #161b22;
+    --c-border:    #30363d;
+    --c-accent:    #238636;
+    --c-accent2:   #388bfd;
+    --c-text:      #e6edf3;
+    --c-muted:     #8b949e;
+    --c-nodata:    #da3633;
+    --c-valid:     #3fb950;
+    --c-selected:  #58a6ff;
+    --radius:      6px;
+    --font:        "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-family: var(--font);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Header ───────────────────────────────────────────────────── */
+  header {
+    border-bottom: 1px solid var(--c-border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .tag {
+    font-size: 11px;
+    background: var(--c-accent);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  header .sub { color: var(--c-muted); font-size: 13px; }
+
+  /* ── Layout ───────────────────────────────────────────────────── */
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 0;
+    height: calc(100vh - 57px);
+  }
+  aside {
+    border-right: 1px solid var(--c-border);
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  main {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+
+  /* ── Controls ─────────────────────────────────────────────────── */
+  .ctrl-group { display: flex; flex-direction: column; gap: 8px; }
+  .ctrl-group label { color: var(--c-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .ctrl-group input[type=range] { width: 100%; accent-color: var(--c-accent2); }
+  .ctrl-row { display: flex; justify-content: space-between; align-items: center; }
+  .ctrl-val { font-size: 13px; font-weight: 600; color: var(--c-accent2); }
+
+  button.run {
+    width: 100%;
+    padding: 10px;
+    background: var(--c-accent);
+    border: none;
+    border-radius: var(--radius);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  button.run:hover { opacity: .85; }
+  button.run:active { opacity: .7; }
+
+  /* ── Canvas panel ─────────────────────────────────────────────── */
+  .canvas-wrap {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+  }
+  canvas { display: block; }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--c-muted);
+  }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .legend .dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── Stats bar ─────────────────────────────────────────────────── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .stat-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 12px;
+  }
+  .stat-card .num { font-size: 22px; font-weight: 700; color: var(--c-accent2); }
+  .stat-card .lbl { font-size: 11px; color: var(--c-muted); margin-top: 2px; }
+
+  /* ── Spread meter ─────────────────────────────────────────────── */
+  .spread-bar-wrap {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .spread-bar-wrap h3 { font-size: 12px; color: var(--c-muted); text-transform: uppercase; letter-spacing:.05em; margin-bottom: 8px; }
+  .spread-track {
+    height: 8px;
+    background: var(--c-border);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .spread-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--c-nodata), var(--c-accent2), var(--c-valid));
+    border-radius: 4px;
+    transition: width .4s ease;
+  }
+  .spread-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--c-muted);
+    margin-top: 4px;
+  }
+
+  /* ── Responsive ───────────────────────────────────────────────── */
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; height: auto; }
+    aside { border-right: none; border-bottom: 1px solid var(--c-border); }
+    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>rs-patch-sampler</h1>
+  <span class="tag">v0.1.0</span>
+  <span class="sub">Nodata-aware geographically-stratified patch sampling</span>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="ctrl-group">
+      <div class="ctrl-row">
+        <label>Raster size</label>
+        <span class="ctrl-val" id="lbl-raster">512 × 512</span>
+      </div>
+      <input type="range" id="raster-size" min="256" max="1024" step="256" value="512" />
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-row">
+        <label>Patch size</label>
+        <span class="ctrl-val" id="lbl-patch">64 px</span>
+      </div>
+      <input type="range" id="patch-size" min="16" max="128" step="16" value="64" />
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-row">
+        <label>Stride</label>
+        <span class="ctrl-val" id="lbl-stride">64 px</span>
+      </div>
+      <input type="range" id="stride" min="16" max="128" step="16" value="64" />
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-row">
+        <label>Max nodata fraction</label>
+        <span class="ctrl-val" id="lbl-nodata">5%</span>
+      </div>
+      <input type="range" id="max-nodata" min="0" max="50" step="5" value="5" />
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-row">
+        <label>Target patches (N)</label>
+        <span class="ctrl-val" id="lbl-target">all</span>
+      </div>
+      <input type="range" id="target-n" min="0" max="200" step="10" value="0" />
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-row">
+        <label>Nodata block coverage</label>
+        <span class="ctrl-val" id="lbl-nd-cover">20%</span>
+      </div>
+      <input type="range" id="nd-cover" min="0" max="60" step="5" value="20" />
+    </div>
+
+    <button class="run" id="btn-run">▶ Sample</button>
+
+    <div style="font-size:11px; color: var(--c-muted); line-height: 1.5;">
+      This demo simulates the three-phase pipeline:<br>
+      <strong style="color:var(--c-text)">1. Nodata filter</strong> — rejects patches with too many nodata pixels.<br>
+      <strong style="color:var(--c-text)">2. Spread selection</strong> — greedy farthest-point when N is set.<br>
+      <strong style="color:var(--c-text)">3. Result</strong> — accepted patches shown in blue.
+    </div>
+  </aside>
+
+  <main>
+    <div class="stats-bar">
+      <div class="stat-card"><div class="num" id="stat-candidates">—</div><div class="lbl">Candidates</div></div>
+      <div class="stat-card"><div class="num" id="stat-valid">—</div><div class="lbl">Valid (nodata pass)</div></div>
+      <div class="stat-card"><div class="num" id="stat-selected">—</div><div class="lbl">Selected</div></div>
+      <div class="stat-card"><div class="num" id="stat-rejected">—</div><div class="lbl">Rejected (nodata)</div></div>
+    </div>
+
+    <div class="spread-bar-wrap">
+      <h3>Geographic spread score (Moran's I)</h3>
+      <div class="spread-track"><div class="spread-fill" id="spread-fill" style="width:0%"></div></div>
+      <div class="spread-labels"><span>Clustered</span><span id="spread-val">—</span><span>Dispersed</span></div>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="canvas" width="640" height="640"></canvas>
+    </div>
+
+    <div class="legend">
+      <span><span class="dot" style="background:#1c2b3a"></span> Valid (not selected)</span>
+      <span><span class="dot" style="background:var(--c-nodata)"></span> Rejected (nodata)</span>
+      <span><span class="dot" style="background:var(--c-selected)"></span> Selected</span>
+      <span><span class="dot" style="background:#333"></span> Nodata region</span>
+    </div>
+  </main>
+</div>
+
+<script>
+// ── Simulation core ──────────────────────────────────────────────
+
+function seededRng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+function buildNodataMap(rasterSize, ndCoverFrac, rng) {
+  // Generate random rectangular nodata blobs covering ~ndCoverFrac of scene
+  const map = new Uint8Array(rasterSize * rasterSize);
+  const totalPixels = rasterSize * rasterSize;
+  const targetNodata = Math.floor(totalPixels * ndCoverFrac);
+  let placed = 0;
+  let attempts = 0;
+  while (placed < targetNodata && attempts < 200) {
+    attempts++;
+    const bw = Math.floor(rng() * rasterSize * 0.4 + rasterSize * 0.05);
+    const bh = Math.floor(rng() * rasterSize * 0.4 + rasterSize * 0.05);
+    const bx = Math.floor(rng() * (rasterSize - bw));
+    const by = Math.floor(rng() * (rasterSize - bh));
+    for (let y = by; y < by + bh; y++) {
+      for (let x = bx; x < bx + bw; x++) {
+        if (map[y * rasterSize + x] === 0) {
+          map[y * rasterSize + x] = 1;
+          placed++;
+        }
+      }
+    }
+  }
+  return map;
+}
+
+function computePatchNodata(nodataMap, rasterSize, colOff, rowOff, patchSize) {
+  const actualW = Math.min(patchSize, rasterSize - colOff);
+  const actualH = Math.min(patchSize, rasterSize - rowOff);
+  if (actualW <= 0 || actualH <= 0) return 1.0;
+  let nodata = 0;
+  for (let r = rowOff; r < rowOff + actualH; r++) {
+    for (let c = colOff; c < colOff + actualW; c++) {
+      if (nodataMap[r * rasterSize + c]) nodata++;
+    }
+  }
+  return nodata / (actualW * actualH);
+}
+
+function farthestPoint(candidates, targetN, rng) {
+  if (targetN >= candidates.length) return [...candidates];
+  const arr = candidates.map(c => [c.gc, c.gr]);
+  const n = arr.length;
+  const seedIdx = Math.floor(rng() * n);
+  const selected = [seedIdx];
+  const minDists = new Float32Array(n).fill(Infinity);
+
+  function updateDists(pt) {
+    for (let i = 0; i < n; i++) {
+      const dx = arr[i][0] - pt[0], dy = arr[i][1] - pt[1];
+      const d = dx*dx + dy*dy;
+      if (d < minDists[i]) minDists[i] = d;
+    }
+  }
+
+  updateDists(arr[seedIdx]);
+  const remaining = new Set([...Array(n).keys()].filter(i => i !== seedIdx));
+
+  while (selected.length < targetN && remaining.size > 0) {
+    let best = -1, bestDist = -1;
+    for (const i of remaining) {
+      if (minDists[i] > bestDist) { bestDist = minDists[i]; best = i; }
+    }
+    selected.push(best);
+    remaining.delete(best);
+    updateDists(arr[best]);
+  }
+  return selected.map(i => candidates[i]);
+}
+
+function moranI(selected, gridCols, gridRows) {
+  if (selected.length === 0) return 0;
+  const grid = new Float32Array(gridRows * gridCols);
+  for (const p of selected) grid[p.gr * gridCols + p.gc] = 1;
+  const n = gridRows * gridCols;
+  let mean = 0;
+  for (let i = 0; i < n; i++) mean += grid[i];
+  mean /= n;
+  const z = new Float32Array(n);
+  for (let i = 0; i < n; i++) z[i] = grid[i] - mean;
+  let num = 0;
+  for (let r = 0; r < gridRows - 1; r++)
+    for (let c = 0; c < gridCols; c++)
+      num += z[r*gridCols+c] * z[(r+1)*gridCols+c];
+  for (let r = 0; r < gridRows; r++)
+    for (let c = 0; c < gridCols - 1; c++)
+      num += z[r*gridCols+c] * z[r*gridCols+c+1];
+  const wSum = 2 * (gridCols * (gridRows-1) + gridRows * (gridCols-1));
+  let den = 0; for (let i = 0; i < n; i++) den += z[i]*z[i];
+  if (den === 0 || wSum === 0) return 0;
+  return (n / wSum) * (num / den);
+}
+
+// ── Main sample function ─────────────────────────────────────────
+
+function runSample() {
+  const rasterSize = +document.getElementById('raster-size').value;
+  const patchSize  = +document.getElementById('patch-size').value;
+  const stride     = +document.getElementById('stride').value;
+  const maxNodata  = +document.getElementById('max-nodata').value / 100;
+  const targetNRaw = +document.getElementById('target-n').value;
+  const targetN    = targetNRaw === 0 ? null : targetNRaw;
+  const ndCover    = +document.getElementById('nd-cover').value / 100;
+  const rng        = seededRng(42);
+
+  const nodataMap = buildNodataMap(rasterSize, ndCover, rng);
+
+  // Generate candidates
+  const candidates = [];
+  let gc = 0;
+  for (let co = 0; co <= rasterSize - patchSize; co += stride) {
+    let gr = 0;
+    for (let ro = 0; ro <= rasterSize - patchSize; ro += stride) {
+      const nf = computePatchNodata(nodataMap, rasterSize, co, ro, patchSize);
+      candidates.push({ gc, gr, co, ro, nf, patchSize });
+      gr++;
+    }
+    gc++;
+  }
+
+  const gridCols = gc;
+  const gridRows = candidates.length > 0 ? candidates[candidates.length - 1].gr + 1 : 0;
+
+  // Phase 1: nodata filter
+  const valid = candidates.filter(p => p.nf <= maxNodata);
+  const rejected = candidates.filter(p => p.nf > maxNodata);
+
+  // Phase 2: spread selection
+  let selected;
+  if (targetN !== null && targetN < valid.length) {
+    selected = farthestPoint(valid, targetN, rng);
+  } else {
+    selected = [...valid];
+  }
+  const selectedSet = new Set(selected.map(p => `${p.gc},${p.gr}`));
+
+  // Spread score
+  const mi = moranI(selected, gridCols, gridRows);
+  const spread = Math.max(0, Math.min(1, (1 - mi) / 2));
+
+  // Update stats
+  document.getElementById('stat-candidates').textContent = candidates.length;
+  document.getElementById('stat-valid').textContent = valid.length;
+  document.getElementById('stat-selected').textContent = selected.length;
+  document.getElementById('stat-rejected').textContent = rejected.length;
+  document.getElementById('spread-fill').style.width = (spread * 100).toFixed(1) + '%';
+  document.getElementById('spread-val').textContent = spread.toFixed(3);
+
+  // ── Draw ──────────────────────────────────────────────────────
+  const canvas = document.getElementById('canvas');
+  const dpr = window.devicePixelRatio || 1;
+  const CW = canvas.parentElement.clientWidth || 640;
+  const CH = Math.min(CW, 600);
+  canvas.width  = CW * dpr;
+  canvas.height = CH * dpr;
+  canvas.style.width  = CW + 'px';
+  canvas.style.height = CH + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const scale = Math.min(CW, CH) / rasterSize;
+  ctx.clearRect(0, 0, CW, CH);
+
+  // Draw nodata regions as dark background
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, CW, CH);
+
+  // Valid pixel regions
+  ctx.fillStyle = '#161b22';
+  for (let r = 0; r < rasterSize; r++) {
+    for (let c = 0; c < rasterSize; c++) {
+      if (!nodataMap[r * rasterSize + c]) {
+        ctx.fillRect(c * scale, r * scale, Math.max(1, scale), Math.max(1, scale));
+      }
+    }
+  }
+
+  // Draw patches
+  for (const p of candidates) {
+    const x = p.co * scale, y = p.ro * scale;
+    const w = p.patchSize * scale, h = p.patchSize * scale;
+    const key = `${p.gc},${p.gr}`;
+
+    if (selectedSet.has(key)) {
+      ctx.strokeStyle = 'rgba(88,166,255,0.85)';
+      ctx.lineWidth = Math.max(1, scale * 1.5);
+      ctx.fillStyle = 'rgba(88,166,255,0.12)';
+    } else if (p.nf > maxNodata) {
+      ctx.strokeStyle = 'rgba(218,54,51,0.5)';
+      ctx.lineWidth = Math.max(0.5, scale * 0.8);
+      ctx.fillStyle = 'rgba(218,54,51,0.07)';
+    } else {
+      ctx.strokeStyle = 'rgba(63,185,80,0.3)';
+      ctx.lineWidth = Math.max(0.5, scale * 0.5);
+      ctx.fillStyle = 'rgba(63,185,80,0.05)';
+    }
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x + ctx.lineWidth/2, y + ctx.lineWidth/2,
+                   w - ctx.lineWidth, h - ctx.lineWidth);
+  }
+}
+
+// ── Wire up controls ─────────────────────────────────────────────
+
+function bind(id, labelId, fmt) {
+  const el = document.getElementById(id);
+  const lbl = document.getElementById(labelId);
+  el.addEventListener('input', () => { lbl.textContent = fmt(el.value); });
+}
+
+bind('raster-size', 'lbl-raster', v => `${v} × ${v}`);
+bind('patch-size',  'lbl-patch',  v => `${v} px`);
+bind('stride',      'lbl-stride', v => `${v} px`);
+bind('max-nodata',  'lbl-nodata', v => `${v}%`);
+bind('target-n',    'lbl-target', v => v == 0 ? 'all' : v);
+bind('nd-cover',    'lbl-nd-cover', v => `${v}%`);
+
+document.getElementById('btn-run').addEventListener('click', runSample);
+
+// Auto-run on load
+runSample();
+</script>
+</body>
+</html>
