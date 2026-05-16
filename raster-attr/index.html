@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>raster-attr — Raster Attribute Table Python Library</title>
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: #30363d;
+      --accent: #2ea043; --text: #e6edf3; --muted: #8b949e;
+      --link: #58a6ff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 2rem; max-width: 900px; margin: 0 auto; }
+    header { border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+    .badge { display: inline-block; background: var(--accent); color: #fff; font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 12px; margin-right: 0.5rem; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--muted); font-size: 1rem; margin-bottom: 1rem; }
+    .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.8rem; }
+    .tag { background: var(--surface); border: 1px solid var(--border); padding: 0.2rem 0.7rem; border-radius: 8px; font-size: 0.8rem; color: var(--muted); }
+    section { margin-bottom: 2rem; }
+    h2 { font-size: 1.1rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+    pre { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-size: 0.85rem; overflow-x: auto; line-height: 1.5; }
+    .signal { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 0.8rem 1rem; margin-bottom: 0.6rem; font-size: 0.9rem; }
+    .signal a { color: var(--link); text-decoration: none; }
+    .links a { display: inline-block; background: var(--accent); color: #fff; padding: 0.5rem 1.2rem; border-radius: 6px; text-decoration: none; font-weight: 600; margin-right: 0.8rem; margin-top: 0.4rem; }
+    .links a.secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th, td { text-align: left; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <span class="badge">Python</span>
+      <span class="badge" style="background:#1f6feb">GIS</span>
+      <span class="badge" style="background:#6e40c9">MIT</span>
+    </div>
+    <h1>raster-attr</h1>
+    <p class="subtitle">Read, write, and manipulate Raster Attribute Tables (RATs) in Python — GeoTIFF, .aux.xml, and .vat.dbf backends.</p>
+    <div class="tags">
+      <span class="tag">raster-attribute-table</span>
+      <span class="tag">gdal</span>
+      <span class="tag">land-cover</span>
+      <span class="tag">remote-sensing</span>
+      <span class="tag">geospatial</span>
+    </div>
+    <div class="links" style="margin-top:1rem">
+      <a href="https://github.com/daudee215/raster-attr">GitHub</a>
+      <a href="https://github.com/daudee215/raster-attr/releases/tag/v0.1.0" class="secondary">v0.1.0 Release</a>
+    </div>
+  </header>
+
+  <section>
+    <h2>Why it exists</h2>
+    <div class="signal"><a href="https://github.com/rasterio/rasterio/issues/3185">rasterio#3185</a> — "Add reading and writing of raster attribute tables (RAT)" — open since 2024</div>
+    <div class="signal"><a href="https://github.com/natcap/invest/issues/2333">natcap/invest#2333</a> — "Reports: Display Raster Attribute Tables for LULC maps"</div>
+    <div class="signal"><a href="https://gis.stackexchange.com/questions/48264">SE#48264</a>, <a href="https://gis.stackexchange.com/questions/55292">SE#55292</a>, <a href="https://gis.stackexchange.com/questions/192356">SE#192356</a>, <a href="https://gis.stackexchange.com/questions/500270">SE#500270</a> — unanswered RAT questions on GIS Stack Exchange</div>
+    <p style="margin-top:0.8rem;color:var(--muted);font-size:0.9rem">No maintained PyPI package existed for RAT read/write as of May 2026. GDAL's raw Python bindings only cover the GeoTIFF backend with no pandas integration, no CLI, and no .vat.dbf support.</p>
+  </section>
+
+  <section>
+    <h2>Quickstart</h2>
+    <pre><span style="color:#79c0ff">from</span> raster_attr <span style="color:#79c0ff">import</span> RasterAttributeTable
+
+<span style="color:#8b949e"># Read — backend auto-detected (.vat.dbf > .aux.xml > tiff)</span>
+rat = RasterAttributeTable.from_file(<span style="color:#a5d6ff">"nlcd_2021.tif"</span>)
+df = rat.to_dataframe()
+<span style="color:#79c0ff">print</span>(df.head())
+<span style="color:#8b949e">#    Value    Count         ClassName  Red  Green  Blue
+# 0     11  5200000        Open Water   70    107   159</span>
+
+<span style="color:#8b949e"># Add a column and save</span>
+rat.add_column(<span style="color:#a5d6ff">"Area_km2"</span>, <span style="color:#a5d6ff">"Real"</span>, <span style="color:#a5d6ff">"Generic"</span>,
+               values=[v * 900 / 1e6 <span style="color:#79c0ff">for</span> v <span style="color:#79c0ff">in</span> df[<span style="color:#a5d6ff">"Count"</span>]])
+rat.to_file(<span style="color:#a5d6ff">"nlcd_2021.tif"</span>, backend=<span style="color:#a5d6ff">"vat_dbf"</span>)</pre>
+  </section>
+
+  <section>
+    <h2>Benchmark (50 000 classes)</h2>
+    <table>
+      <thead><tr><th>Operation</th><th>Backend</th><th>Mean time</th></tr></thead>
+      <tbody>
+        <tr><td>Write</td><td>vat_dbf</td><td>129 ms</td></tr>
+        <tr><td>Read</td><td>vat_dbf</td><td>292 ms</td></tr>
+        <tr><td>Write</td><td>aux_xml</td><td>479 ms</td></tr>
+        <tr><td>Read</td><td>aux_xml</td><td>261 ms</td></tr>
+        <tr><td>to_dataframe()</td><td>—</td><td>5 ms</td></tr>
+        <tr><td>from_dataframe()</td><td>—</td><td>2 ms</td></tr>
+      </tbody>
+    </table>
+  </section>
+</body>
+</html>
