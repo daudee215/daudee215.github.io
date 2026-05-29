@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>transit-isochrone — Multimodal Transit Isochrone Generator</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+  .badge { display:inline-block; background:#2563eb; color:#fff; padding:.2em .6em; border-radius:4px; font-size:.85em; }
+  code { background:#f1f5f9; padding:.2em .4em; border-radius:3px; }
+  pre { background:#f1f5f9; padding:1rem; border-radius:6px; overflow-x:auto; }
+</style>
+</head>
+<body>
+<h1>transit-isochrone</h1>
+<p><span class="badge">Python</span> <span class="badge">MIT</span> <span class="badge">v0.1.0</span></p>
+<p>Pure-Python multimodal transit isochrone generator using the RAPTOR algorithm on GTFS feeds. No Java, no Rust, no compiled extensions.</p>
+<h2>Gap filled</h2>
+<p>Computing transit isochrones in Python previously required r5py (Java JVM) or ferrobus (Rust). This library fills the pure-Python gap, pip-installable with no native runtime dependency.</p>
+<h2>Install</h2>
+<pre><code>pip install transit-isochrone</code></pre>
+<h2>Quickstart</h2>
+<pre><code>from transit_isochrone import compute_isochrone
+from datetime import datetime
+
+iso = compute_isochrone(
+    "gtfs.zip", 52.3791, 4.8994,
+    max_minutes=30,
+    departure=datetime(2026, 5, 29, 8, 0, 0),
+)
+print(iso["properties"]["reachable_stops"], "stops reachable")</code></pre>
+<h2>Performance</h2>
+<p>RAPTOR routing on 400-stop grid: ~12.9 µs/query (77K queries/sec).</p>
+<p><a href="https://github.com/daudee215/transit-isochrone">GitHub →</a></p>
+</body>
+</html>
