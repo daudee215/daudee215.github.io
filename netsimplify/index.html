@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>netsimplify — Topology-Preserving Network Simplification</title>
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: #30363d;
+      --text: #e6edf3; --muted: #8b949e; --accent: #2d9e6b; --accent2: #58a6ff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, system-ui, sans-serif; }
+    .hero { max-width: 900px; margin: 0 auto; padding: 3rem 2rem; }
+    .badge-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .badge { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 0.25rem 0.6rem; font-size: 0.78rem; color: var(--muted); }
+    .badge.green { border-color: var(--accent); color: var(--accent); }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+    .tagline { color: var(--muted); font-size: 1.05rem; margin-bottom: 2rem; line-height: 1.6; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 2rem 0; }
+    @media(max-width:600px){ .grid { grid-template-columns: 1fr; } }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+    .card h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.75rem; }
+    pre { background: #0d1117; border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 0.82rem; line-height: 1.5; border: 1px solid var(--border); }
+    code { color: var(--accent2); }
+    .bench { font-variant-numeric: tabular-nums; }
+    .bench td { padding: 0.3rem 0.8rem 0.3rem 0; color: var(--muted); }
+    .bench td:first-child { color: var(--text); }
+    .links a { color: var(--accent2); text-decoration: none; margin-right: 1.5rem; font-size: 0.9rem; }
+    .links a:hover { text-decoration: underline; }
+    .signals { list-style: none; }
+    .signals li { padding: 0.2rem 0; color: var(--muted); font-size: 0.88rem; }
+    .signals a { color: var(--accent2); text-decoration: none; }
+  </style>
+</head>
+<body>
+<div class="hero">
+  <div class="badge-row">
+    <span class="badge green">v0.1.0</span>
+    <span class="badge">MIT</span>
+    <span class="badge">Python ≥ 3.10</span>
+    <span class="badge green">16 tests passing</span>
+    <span class="badge">GIS</span>
+    <span class="badge">Infrastructure</span>
+  </div>
+  <h1>netsimplify</h1>
+  <p class="tagline">Topology-preserving simplification for geospatial infrastructure line networks.<br>
+  Pins shared vertices (junctions, T-junctions, shared endpoints) so connectivity is never broken.</p>
+
+  <div class="links">
+    <a href="https://github.com/daudee215/netsimplify">GitHub</a>
+    <a href="https://github.com/daudee215/netsimplify/releases/tag/v0.1.0">v0.1.0 release</a>
+    <a href="https://github.com/daudee215/netsimplify/blob/main/docs/adr/0001-architecture.md">ADR</a>
+    <a href="https://github.com/daudee215/netsimplify/blob/main/ROADMAP.md">Roadmap</a>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Quickstart</h3>
+      <pre><code>pip install netsimplify</code></pre>
+      <pre><code>from netsimplify import simplify_network
+import geopandas as gpd
+
+gdf = gpd.read_file("water_mains.gpkg")
+out = simplify_network(gdf, tolerance=0.5)
+# Junctions guaranteed intact</code></pre>
+    </div>
+    <div class="card">
+      <h3>Why this exists</h3>
+      <p style="font-size:0.88rem;color:var(--muted);line-height:1.6;margin-bottom:0.75rem">
+        <code>geopandas.simplify()</code> processes features independently — shared endpoints drift
+        apart, breaking network connectivity. No maintained Python library prevented this for
+        line networks until now.
+      </p>
+      <h3 style="margin-top:1rem">Source signals</h3>
+      <ul class="signals">
+        <li><a href="https://gis.stackexchange.com/questions/20799/">GIS SE [41★] — Topology in QGIS</a></li>
+        <li><a href="https://github.com/r-spatial/sf/issues/381">r-spatial/sf #381 — st_simplify edges</a></li>
+        <li><a href="https://arxiv.org/abs/1912.03032">arXiv 1912.03032 — Topology simplification</a></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Benchmark (20,200 features)</h3>
+      <table class="bench">
+        <tr><td>topology_preserving=True</td><td>2.18s</td></tr>
+        <tr><td>topology_preserving=False</td><td>1.09s</td></tr>
+        <tr><td>vertex reduction</td><td>~68%</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>How it works</h3>
+      <ol style="font-size:0.88rem;color:var(--muted);line-height:1.8;padding-left:1.2rem">
+        <li>Build planar graph of all features</li>
+        <li>Find all shared vertices (degree ≥ 3 or shared endpoints)</li>
+        <li>Pin those vertices in Douglas-Peucker</li>
+        <li>Validate: assert same components &amp; junction count</li>
+      </ol>
+    </div>
+  </div>
+</div>
+</body>
+</html>
